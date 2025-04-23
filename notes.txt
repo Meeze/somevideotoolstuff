@@ -1,0 +1,7 @@
+﻿720p video:
+formula= 720x1280
+x = 40 + 1280/4
+y= 90 + 720/3
+topleft=40,90 topmidleft=360,90 topmidright=680,90 topright=1000,90
+midleft=40,330 centerleft =360,330 centerright=680,330 midright=1000,330
+lowleft=40,570 lowmidleft=360,570 lowmidright=680,570 lowrigght=1000,570

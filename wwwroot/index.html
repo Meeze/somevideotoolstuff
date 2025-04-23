@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Video Overlay Tool</title>
+</head>
+<body>
+<h1>Overlay Text on Video</h1>
+
+<form id="uploadForm">
+    <!-- Media Clips -->
+    <div id="videoInputs">
+        <div class="video-block">
+            <input accept="video/*,image/*" class="mediaFile" required type="file"/>
+            <input class="mediaFrom" placeholder="Clip start time (e.g., 0)" required type="text" value="0"/>
+            <input class="mediaUntil" placeholder="Clip end time (e.g., 10)" required type="text" value="10"/>
+            <input accept="audio/*" class="mediaAudio" type="file"/>
+            <label><input class="mediaMute" type="checkbox"/> Mute Clip Audio</label>
+            <label>Clip Volume: <input class="mediaClipVolume" max="2" min="0" step="0.1" type="range"
+                                       value="1"/></label>
+            <label>Attached Audio Volume: <input class="mediaAttachedVolume" max="2" min="0" step="0.1" type="range"
+                                                 value="1"/></label>
+        </div>
+    </div>
+    <button onclick="addVideo()" type="button">Add More Videos/Images</button>
+
+    <!-- Text Overlays (Optional) -->
+    <h2>Text Overlays (Optional)</h2>
+    <div id="overlayInputs"></div>
+    <button onclick="addOverlay()" type="button">Add Text Overlay</button>
+
+    <!-- Background Audio Tracks -->
+    <h2>Background Audio Tracks</h2>
+    <div id="backgroundAudioInputs">
+        <div class="background-audio-block"></div>
+    </div>
+    <button onclick="addBackgroundAudio()" type="button">Add More Background Audio</button>
+    <h2>Resolution</h2>
+    <select id="resolutionSelect">
+        <option value="automatic">Automatic</option>
+        <option value="720p">720p</option>
+        <option value="1080p">1080p</option>
+        <option value="1440p">1440p</option>
+        <option value="4k">4K</option>
+    </select>
+    <button type="submit">Submit</button>
+</form>
+
+<div id="result"></div>
+
+<script>
+    function addVideo() {
+        const container = document.getElementById("videoInputs");
+        const div = document.createElement("div");
+        div.className = "video-block";
+        div.innerHTML = `
+            <input type="file" class="mediaFile" accept="video/*,image/*" required />
+            <input type="text" class="mediaFrom" placeholder="Clip start time (e.g., 0)" required value="0" />
+            <input type="text" class="mediaUntil" placeholder="Clip end time (e.g., 10)" required value="10" />
+            <input type="file" class="mediaAudio" accept="audio/*" />
+            <label><input type="checkbox" class="mediaMute" /> Mute Clip Audio</label>
+            <label>Clip Volume: <input type="range" class="mediaClipVolume" min="0" max="2" step="0.1" value="1" /></label>
+            <label>Attached Audio Volume: <input type="range" class="mediaAttachedVolume" min="0" max="2" step="0.1" value="1" /></label>
+        `;
+        container.appendChild(div);
+    }
+
+    function addOverlay() {
+        const container = document.getElementById("overlayInputs");
+        const div = document.createElement("div");
+        div.className = "overlay";
+        div.innerHTML = `
+            <input type="text" class="overlayText" placeholder="Overlay text" />
+            <input type="text" class="overlayFrom" placeholder="Start time" value="0" />
+            <input type="text" class="overlayUntil" placeholder="End time" value="10" />
+            <input type="number" class="overlayFontSize" placeholder="Font size" value="50" />
+            <input type="text" class="overlayColor" placeholder="Color" value="white" />
+            <input type="number" class="overlayFade" placeholder="Fade duration (seconds)" value="0" />
+            <input type="text" class="overlayPosition" placeholder="Position (e.g., 100 200)" />
+        `;
+        container.appendChild(div);
+    }
+
+    function addBackgroundAudio() {
+        const container = document.getElementById("backgroundAudioInputs");
+        const div = document.createElement("div");
+        div.className = "background-audio-block";
+        div.innerHTML = `
+            <input type="file" class="bgAudioFile" accept="audio/*" required />
+            <input type="text" class="bgAudioStart" placeholder="Start time in video (e.g., 5)" required value="0" />
+            <input type="text" class="bgAudioFrom" placeholder="Start time in audio file (e.g., 0)" required value="0" />
+            <input type="text" class="bgAudioDuration" placeholder="Duration to play from audio (e.g., 10)" required value="10" />
+            <input type="range" class="bgAudioVolume" min="0" max="2" step="0.1" value="1" />
+        `;
+        container.appendChild(div);
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const mediaBlocks = document.querySelectorAll(".video-block");
+        const overlayBlocks = document.querySelectorAll(".overlay");
+        const bgAudioBlocks = document.querySelectorAll(".background-audio-block");
+
+        const mediaItems = [];
+        for (const block of mediaBlocks) {
+            const fileInput = block.querySelector(".mediaFile");
+            const from = block.querySelector(".mediaFrom").value;
+            const until = block.querySelector(".mediaUntil").value;
+            const audioInput = block.querySelector(".mediaAudio");
+            const mute = block.querySelector(".mediaMute").checked;
+            const clipVolume = parseFloat(block.querySelector(".mediaClipVolume").value);
+            const attachedVolume = parseFloat(block.querySelector(".mediaAttachedVolume").value);
+
+            const file = fileInput.files[0];
+            const base64Content = await fileToBase64(file);
+            const isImage = file.type.startsWith("image");
+
+            let audioBase64 = null;
+            if (audioInput.files.length > 0) {
+                const audioFile = audioInput.files[0];
+                audioBase64 = await fileToBase64(audioFile);
+            }
+
+            mediaItems.push({
+                FileName: file.name,
+                IsImage: isImage,
+                From: parseFloat(from),
+                Until: parseFloat(until),
+                Base64Content: base64Content,
+                AudioBase64: audioBase64,
+                Mute: mute,
+                ClipVolume: clipVolume,
+                AttachedVolume: attachedVolume
+            });
+        }
+
+        const overlays = [];
+        for (const block of overlayBlocks) {
+            const textElement = block.querySelector(".overlayText");
+            const text = textElement.value.trim();
+            if (!text) continue;
+
+            overlays.push({
+                Text: text,
+                From: parseFloat(block.querySelector(".overlayFrom")?.value || 0),
+                Until: parseFloat(block.querySelector(".overlayUntil")?.value || 0),
+                FontSize: parseInt(block.querySelector(".overlayFontSize")?.value || 50),
+                Color: block.querySelector(".overlayColor")?.value || "white",
+                Fade: parseFloat(block.querySelector(".overlayFade")?.value || 0),
+                Position: block.querySelector(".overlayPosition")?.value || ""
+            });
+        }
+
+        const backgroundAudioItems = [];
+        for (const block of bgAudioBlocks) {
+            const fileInput = block.querySelector(".bgAudioFile");
+            if (!fileInput || !fileInput.files.length) continue;  // Fix: Check both null and length
+
+            const start = parseFloat(block.querySelector(".bgAudioStart").value);
+            const from = parseFloat(block.querySelector(".bgAudioFrom").value);
+            const duration = parseFloat(block.querySelector(".bgAudioDuration").value);
+            const volume = parseFloat(block.querySelector(".bgAudioVolume").value);
+
+            const file = fileInput.files[0];
+            const base64Content = await fileToBase64(file);
+
+            backgroundAudioItems.push({
+                FileName: file.name,
+                Start: start,
+                From: from,
+                Duration: duration,
+                Volume: volume,
+                Base64Content: base64Content
+            });
+        }
+
+
+        const resolution = document.getElementById("resolutionSelect").value;
+
+        const requestBody = {
+            MediaItems: mediaItems,
+            Overlays: overlays.length > 0 ? overlays : null,
+            BackgroundAudioItems: backgroundAudioItems.length > 0 ? backgroundAudioItems : null,
+            Resolution: resolution
+        };
+
+        const response = await fetch("/api/video/overlay", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(requestBody)
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            document.getElementById("result").innerHTML = `<video controls src="${url}" width="640"></video>`;
+        } else {
+            alert("Failed to process video");
+        }
+    });
+
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const base64String = reader.result.split(",")[1];
+                resolve(base64String);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    }
+</script>
+</body>
+</html>

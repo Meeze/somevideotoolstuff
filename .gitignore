@@ -1,0 +1,4 @@
+﻿ffmpeg.exe
+ffprobe.exe
+bin/
+obj/
